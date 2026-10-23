@@ -41,28 +41,30 @@ class StateHistoryRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('from_state')
                     ->label('From')
                     ->badge()
-                    ->colors([
-                        'gray' => 'RECEIVED',
-                        'info' => 'VALIDATED',
-                        'warning' => 'SUBMITTED',
-                        'amber' => 'PENDING_CONFIRMATION',
-                        'success' => 'ISSUED',
-                        'danger' => 'FAILED',
-                        'purple' => 'NEEDS_RECONCILIATION',
-                    ])
+                    ->color(fn (?string $state): string => match($state) {
+                        'RECEIVED' => 'gray',
+                        'VALIDATED' => 'info',
+                        'SUBMITTED' => 'warning',
+                        'PENDING_CONFIRMATION' => 'warning',
+                        'ISSUED' => 'success',
+                        'FAILED' => 'danger',
+                        'NEEDS_RECONCILIATION' => 'purple',
+                        default => 'gray',
+                    })
                     ->placeholder('Initial'),
                 Tables\Columns\TextColumn::make('to_state')
                     ->label('To')
                     ->badge()
-                    ->colors([
-                        'gray' => 'RECEIVED',
-                        'info' => 'VALIDATED',
-                        'warning' => 'SUBMITTED',
-                        'amber' => 'PENDING_CONFIRMATION',
-                        'success' => 'ISSUED',
-                        'danger' => 'FAILED',
-                        'purple' => 'NEEDS_RECONCILIATION',
-                    ]),
+                    ->color(fn (?string $state): string => match($state) {
+                        'RECEIVED' => 'gray',
+                        'VALIDATED' => 'info',
+                        'SUBMITTED' => 'warning',
+                        'PENDING_CONFIRMATION' => 'warning',
+                        'ISSUED' => 'success',
+                        'FAILED' => 'danger',
+                        'NEEDS_RECONCILIATION' => 'purple',
+                        default => 'gray',
+                    }),
                 Tables\Columns\TextColumn::make('metadata')
                     ->label('Metadata')
                     ->limit(50)

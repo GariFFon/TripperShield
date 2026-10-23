@@ -62,11 +62,12 @@ class IssuanceAttemptsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('response_status')
                     ->label('Response Status')
                     ->badge()
-                    ->colors([
-                        'success' => 'SUBMITTED',
-                        'warning' => 'PENDING',
-                        'danger' => 'FAILED',
-                    ])
+                    ->color(fn (?string $state): string => match($state) {
+                        'SUBMITTED' => 'success',
+                        'PENDING' => 'warning',
+                        'FAILED' => 'danger',
+                        default => 'gray',
+                    })
                     ->placeholder('—'),
                 Tables\Columns\TextColumn::make('started_at')
                     ->label('Started')

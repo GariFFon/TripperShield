@@ -57,11 +57,12 @@ class ProviderEventsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('event_type')
                     ->label('Type')
                     ->badge()
-                    ->colors([
-                        'success' => 'ISSUED',
-                        'danger' => 'REJECTED',
-                        'warning' => 'TIMEOUT',
-                    ]),
+                    ->color(fn (?string $state): string => match($state) {
+                        'ISSUED' => 'success',
+                        'REJECTED' => 'danger',
+                        'TIMEOUT' => 'warning',
+                        default => 'gray',
+                    }),
                 Tables\Columns\IconColumn::make('processed_at')
                     ->label('Processed')
                     ->boolean()

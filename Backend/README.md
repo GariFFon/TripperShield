@@ -1,39 +1,46 @@
-# PolicyFlow
+# PolicyFlow (TripperShield Backend)
 
-**Fault-Tolerant Insurance Issuance & Reconciliation Engine**
+**Fault-Tolerant Travel Insurance Issuance & Reconciliation Engine**
 
-A Laravel 11 application for processing travel insurance policy requests with robust handling of unreliable insurer behavior. Built for campus placement assessment - demonstrates enterprise-grade reliability patterns without real payment/insurer integrations.
+A Laravel 11 application for processing travel insurance policy requests with robust handling of unreliable insurer behavior. Built for enterprise-grade reliability patterns with deterministic pricing, an immutable state machine, duplicate prevention, automated reconciliation, and **two modern user interfaces** (Client Web App + Filament v3 Admin Panel) alongside a complete RESTful API.
 
 ---
 
-## 🎯 Project Overview
+## 🎯 Project Highlights
 
-PolicyFlow implements a complete insurance policy issuance workflow with focus on fault tolerance:
-
-- **Policy Intake**: RESTful API with comprehensive validation
-- **Premium Calculation**: Deterministic formula-based pricing
-- **State Machine**: Explicit transitions with audit trail
-- **Mock Insurer**: Configurable scenarios (success, failure, timeout, duplicate)
-- **Reliability**: Duplicate prevention, idempotent callbacks
-- **Reconciliation**: Automated stale request detection and resolution
-- **Admin Panel**: Filament v3 operations dashboard
+- **🎨 Interactive Client Portal**: Dark-mode web interface for non-technical evaluators to submit policies, view real-time premium formulas, simulate insurer scenarios, and inspect visual audit timelines.
+- **⚡ 1-Click "Ready-Made Data" & Auto-Fill**: Fill the entire form with randomized, valid demo data with a single click in both the Client Portal and Filament Admin.
+- **💰 Deterministic Formula Pricing**: Live, reactive pricing calculator with instant multiplier breakdowns (`Base Rate × Days × Age Factor × Destination Factor × Coverage Factor`).
+- **🔄 Immutable 7-State Machine**: Enforces strict transitions (`RECEIVED` ➔ `VALIDATED` ➔ `SUBMITTED` ➔ `PENDING_CONFIRMATION` ➔ `ISSUED` / `FAILED` / `NEEDS_RECONCILIATION`).
+- **🛡️ Concurrency & Idempotency Protection**: Row-level database locks (`SELECT ... FOR UPDATE`) prevent duplicate requests from the same agent; unique event keys prevent duplicate insurer callbacks from corrupting state.
+- **🔧 Active Reconciliation Service**: Automatically resolves timed-out or pending requests by querying insurer status.
+- **⚙️ Filament v3 Admin Operations Dashboard**: Full back-office management panel with bulk actions, relation managers, and manual retry tools.
+- **🧪 100% Test Coverage on Workflow**: 53 automated tests passing with 241 assertions.
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   Agents    │────▶│  PolicyFlow API  │────▶│  Mock Insurer   │
-│  (Clients)  │     │   (Laravel 11)   │     │  (Internal)     │
-└─────────────┘     └──────────────────┘     └─────────────────┘
+┌────────────────────────────────────────────────────────┐
+│                   USER INTERFACES                      │
+│   Client Web App (/policy/create) │ Filament Admin     │
+└──────────────────────────┬─────────────────────────────┘
                            │
-                    ┌──────┴──────┐
-                    ▼             ▼
-              ┌──────────┐  ┌────────────┐
-              │ Database │  │  Queue     │
-              │ (MySQL)  │  │  (Redis)   │
-              └──────────┘  └────────────┘
+┌──────────────────────────▼─────────────────────────────┐
+│                 POLICYFLOW CORE ENGINE                 │
+│  - Form Request Validation                             │
+│  - Deterministic Formula-Based Pricing Engine          │
+│  - Strict State Machine (7 explicit states)            │
+│  - Concurrency Lock & Duplicate Intake Protection      │
+│  - Provider Event Idempotency Registry                 │
+│  - Stale Request Reconciliation Service                │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+┌──────────────────────────▼─────────────────────────────┐
+│               MOCK INSURER SIMULATOR                   │
+│   Success │ Failure │ Timeout │ Duplicate │ Delayed    │
+└────────────────────────────────────────────────────────┘
 ```
 
 ### Project Structure
@@ -42,458 +49,272 @@ PolicyFlow implements a complete insurance policy issuance workflow with focus o
 Backend/
 ├── app/
 │   ├── Http/
-│   │   ├── Controllers/Api/
-│   │   │   ├── PolicyRequestController.php    # Intake, submit, list, show
-│   │   │   └── MockInsurerController.php      # Callback, status, reconcile
+│   │   ├── Controllers/
+│   │   │   ├── Frontend/
+│   │   │   │   └── PolicyFrontendController.php # Web UI: create, show, dashboard, submit
+│   │   │   └── Api/
+│   │   │       ├── PolicyRequestController.php  # REST API: intake, submit, list, show
+│   │   │       └── MockInsurerController.php    # Callback, status, reconcile
 │   │   ├── Requests/
-│   │   │   └── StorePolicyRequestRequest.php  # Validation rules
+│   │   │   └── StorePolicyRequestRequest.php    # Comprehensive validation rules
 │   │   └── Resources/
-│   │       ├── PolicyRequestResource.php      # Single resource transform
-│   │       └── PolicyRequestCollection.php    # Collection with pagination
+│   │       ├── PolicyRequestResource.php        # Single resource transform
+│   │       └── PolicyRequestCollection.php      # Collection with pagination
 │   ├── Models/
-│   │   ├── PolicyRequest.php                  # Main entity with state machine
-│   │   ├── IssuanceAttempt.php                # Submission attempt records
-│   │   ├── ProviderEvent.php                  # Callback idempotency records
-│   │   └── PolicyStateHistory.php             # Audit trail
+│   │   ├── PolicyRequest.php                    # Main entity with state machine
+│   │   ├── IssuanceAttempt.php                  # Submission attempt records
+│   │   ├── ProviderEvent.php                    # Callback idempotency records
+│   │   └── PolicyStateHistory.php               # Audit trail records
 │   ├── Services/
-│   │   ├── PremiumCalculator.php              # Pricing logic
-│   │   ├── MockInsurerService.php             # Insurer simulation
-│   │   └── ReconciliationService.php          # Stale request resolution
+│   │   ├── PremiumCalculator.php                # Deterministic formula engine
+│   │   ├── MockInsurerService.php               # Insurer simulation & callbacks
+│   │   └── ReconciliationService.php            # Stale request resolution
 │   └── Filament/
-│       └── Resources/PolicyRequestResource.php # Admin panel
+│       ├── Resources/PolicyRequestResource.php  # Admin panel resource with auto-fill
+│       └── Resources/PolicyRequestResource/
+│           ├── Pages/ (List, Create, View)
+│           └── RelationManagers/ (StateHistory, Attempts, ProviderEvents)
 ├── database/
-│   ├── migrations/
-│   │   ├── create_policy_requests_table.php
-│   │   ├── create_issuance_attempts_table.php
-│   │   ├── create_provider_events_table.php
-│   │   └── create_policy_state_history_table.php
+│   ├── migrations/ (policy_requests, issuance_attempts, provider_events, history)
 │   └── seeders/DatabaseSeeder.php
+├── resources/views/
+│   └── frontend/                                # Dark-mode Blade views
+│       ├── index.blade.php                      # Landing page
+│       ├── create.blade.php                     # New policy request form
+│       ├── dashboard.blade.php                  # Policies dashboard
+│       └── show.blade.php                       # Policy detail & scenario simulator
 ├── routes/
-│   ├── api.php
-│   └── mock-insurer.php
-├── tests/
-│   ├── Feature/ (5 test files, 39 tests)
-│   └── Unit/PremiumCalculatorTest.php (11 tests)
-├── examples/
-│   ├── valid-request.json
-│   ├── invalid-dates.json
-│   └── curl-commands.sh
-├── .env.example
-├── README.md
-├── API_DOCUMENTATION.md
-└── AI_USAGE.md
+│   ├── web.php / frontend.php                   # Frontend Web UI routes
+│   ├── api.php                                  # RESTful API routes
+│   └── mock-insurer.php                         # Mock insurer routes
+└── tests/
+    ├── Feature/ (5 test files, 41 tests)
+    └── Unit/PremiumCalculatorTest.php (12 tests)
 ```
 
 ---
 
 ## 📋 Requirements
 
-| Requirement | Version |
-|-------------|---------|
-| PHP | 8.2+ |
-| Laravel | 11+ |
-| Database | SQLite (dev) / MySQL 8+ (prod) |
+| Requirement | Supported Version |
+|---|---|
+| PHP | 8.2+ (tested on PHP 8.2 and PHP 8.5) |
+| Laravel | 11.x |
+| Database | SQLite (default/dev) or MySQL 8+ / PostgreSQL |
 | Composer | 2.x |
-| Node.js | 18+ (for Filament assets) |
 
 ---
 
-## 🚀 Installation
-
-### Quick Start
+## 🚀 Installation & Quick Start
 
 ```bash
 cd Backend
 
-# Install PHP dependencies
+# 1. Install Composer dependencies
 composer install
 
-# Install Node dependencies (for Filament)
-npm install && npm run build
-
-# Copy environment file
+# 2. Copy environment file and generate key
 cp .env.example .env
-
-# Generate application key
 php artisan key:generate
 
-# Run migrations
+# 3. Run database migrations
 php artisan migrate
 
-# (Optional) Seed database
-php artisan db:seed
-
-# Create Filament admin user
+# 4. (Optional) Create Filament Admin User if needed
 php artisan make:filament-user
 
-# Start development server
-php artisan serve
+# 5. Start the local server
+php artisan serve --port=8000
 ```
 
-The application will be available at:
-- **API**: `http://localhost:8000/api`
-- **Admin Panel**: `http://localhost:8000/admin`
+### 🌐 Accessing the System
 
-### Environment Configuration
-
-```env
-# Development (SQLite)
-DB_CONNECTION=sqlite
-DB_DATABASE=database/database.sqlite
-
-# Production (MySQL)
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=policyflow
-DB_USERNAME=root
-DB_PASSWORD=
-
-# Queue & Cache (Production)
-QUEUE_CONNECTION=redis
-CACHE_STORE=redis
-SESSION_DRIVER=redis
-```
+| Interface | URL | Purpose |
+|---|---|---|
+| **Client Portal (Home)** | `http://localhost:8000` | Landing page explaining the engine |
+| **New Policy Form** | `http://localhost:8000/policy/create` | Form with **1-click Ready-Made Data** & live formula breakdown |
+| **Policies Dashboard** | `http://localhost:8000/policies` | Visual policy dashboard & quick submission modal |
+| **Policy Details & Simulation** | `http://localhost:8000/policy/{id}` | Audit timeline, attempts, and scenario simulator |
+| **Filament Admin Dashboard** | `http://localhost:8000/admin` | Enterprise operations panel (`admin@tripper.com` / `password`) |
+| **RESTful API** | `http://localhost:8000/api` | Direct JSON programmatic access |
 
 ---
 
-## 📚 API Documentation
+## 💻 Web User Interface Walkthrough
 
-For complete API documentation with request/response examples, see **[API_DOCUMENTATION.md](API_DOCUMENTATION.md)**.
+Evaluators do not need to construct curl requests. You can test the complete system visually:
 
-### Quick Reference
+### 1. Instant Form Auto-Fill (`/policy/create`)
+- Click the **"⚡ Ready-Made Demo Data"** button on the top-right of the form.
+- The form instantly generates a unique Agent ID, Client Request ID, randomized Indian traveler name, valid date of birth, upcoming travel dates, destination, and sum insured.
+- Notice the **Live Formula Calculator** on the right updating in real time with the full formula:
+  $$\text{Days} \times \text{Base Rate} \times \text{Age Multiplier} \times \text{Destination Multiplier} \times \text{Plan Multiplier} = \text{Total Premium}$$
+
+### 2. Interactive Insurer Simulation (`/policy/{id}`)
+Once created, the policy opens in the **Policy Detail** view:
+- Current state is `VALIDATED`.
+- Pick a mock insurer scenario from the dropdown:
+  - **`success`**: Simulates instant policy issuance ➔ Status updates to `ISSUED` with a unique policy number (`POL-YYYYMMDD-XXXXXX`).
+  - **`failure`**: Simulates provider rejection ➔ Status updates to `FAILED` with error details, and unlocks the **"Retry Submission"** button.
+  - **`timeout`**: Simulates provider timeout/silence ➔ Status updates to `NEEDS_RECONCILIATION`, unlocking the **"Force Reconcile"** button.
+  - **`duplicate`**: Sends two callbacks with the exact same event key ➔ Verifies that the second callback is safely ignored without duplicate issuance.
+  - **`delayed`**: Simulates asynchronous queue-delayed issuance.
+- Inspect the **Visual Audit Trail Timeline** at the bottom showing every timestamped state transition and metadata snapshot.
+
+---
+
+## ⚙️ Filament v3 Admin Panel
+
+Located at **`http://localhost:8000/admin/policy-requests`**:
+- **"New policy request"** modal includes a **"⚡ Fill Sample Data"** header action that populates valid mock data with a single click.
+- Live premium calculation preview in the modal before saving.
+- Complete audit trail and relation managers:
+  - **State History**: Full transition log from initial to terminal state.
+  - **Issuance Attempts**: Every API payload sent to the insurer with responses.
+  - **Provider Events**: Every incoming webhook/callback recorded with idempotency flags.
+- Operational Actions:
+  - **Retry Submission**: Visible on `FAILED` or `NEEDS_RECONCILIATION` policies.
+  - **Trigger Reconciliation**: Visible on `PENDING_CONFIRMATION` and `NEEDS_RECONCILIATION` policies.
+  - **Bulk Reconcile**: Reconciles multiple selected stale requests in batch.
+
+---
+
+## 📚 RESTful API Reference
+
+For detailed JSON schemas and curl examples, see **[API_DOCUMENTATION.md](API_DOCUMENTATION.md)**.
+
+### Endpoint Overview
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/policy-requests` | Create policy request |
-| GET | `/api/policy-requests` | List with filters |
-| GET | `/api/policy-requests/{id}` | Get with audit trail |
-| POST | `/api/policy-requests/{id}/submit` | Submit to insurer |
-| GET | `/api/mock-insurer/scenarios` | List mock scenarios |
-| GET | `/api/mock-insurer/status/{ref}` | Provider status lookup |
-| POST | `/api/mock-insurer/callback` | Insurer callback |
-| POST | `/api/admin/reconcile` | Trigger reconciliation |
+|---|---|---|
+| `POST` | `/api/policy-requests` | Create policy request (with duplicate prevention) |
+| `GET` | `/api/policy-requests` | List policy requests (filter by status, agent, plan) |
+| `GET` | `/api/policy-requests/{id}` | Get policy request with audit trail and attempts |
+| `POST` | `/api/policy-requests/{id}/submit` | Submit to mock insurer (`X-Mock-Scenario` header) |
+| `GET` | `/api/mock-insurer/scenarios` | List supported simulation scenarios |
+| `GET` | `/api/mock-insurer/status/{ref}` | Direct provider status inquiry |
+| `POST` | `/api/mock-insurer/callback` | Webhook callback endpoint (idempotent) |
+| `POST` | `/api/admin/reconcile` | Trigger manual or bulk reconciliation |
 
 ---
 
-## 💰 Premium Calculation
+## 💰 Deterministic Pricing Model
 
-### Formula
-```
-premium = base_daily_rate × travel_days × age_multiplier × destination_multiplier × coverage_multiplier
-```
+$$\text{Premium} = \text{Base Daily Rate} \times \text{Travel Days} \times \text{Age Multiplier} \times \text{Destination Multiplier} \times \text{Coverage Multiplier}$$
 
-### Pricing Tables
+### Configuration Tables
 
-#### Plans
-| Plan | Base Daily Rate | Coverage Multiplier |
-|------|-----------------|---------------------|
-| BASIC | ₹15.00 | 1.00 |
-| PLUS | ₹20.00 | 1.25 |
-| PREMIUM | ₹30.00 | 1.50 |
+| Plan Code | Base Daily Rate | Coverage Multiplier |
+|---|---|---|
+| `BASIC` | ₹15.00 | 1.00× |
+| `PLUS` | ₹20.00 | 1.25× |
+| `PREMIUM` | ₹30.00 | 1.50× |
 
-#### Destinations
 | Destination | Multiplier |
-|-------------|------------|
-| DOMESTIC | 1.00 |
-| INTERNATIONAL | 1.80 |
+|---|---|
+| `DOMESTIC` | 1.00× |
+| `INTERNATIONAL` | 1.80× |
 
-#### Age Ranges
-| Age | Multiplier |
-|-----|------------|
-| 0-17 | 0.80 |
-| 18-35 | 1.00 |
-| 36-50 | 1.25 |
-| 51-65 | 1.50 |
-| 66+ | 2.00 |
+| Traveler Age at Trip Start | Age Multiplier |
+|---|---|
+| 0 – 17 years | 0.80× |
+| 18 – 35 years | 1.00× |
+| 36 – 50 years | 1.25× |
+| 51 – 65 years | 1.50× |
+| 66+ years | 2.00× |
 
-### Example Calculation
-**5 days, Age 28, INTERNATIONAL, PLUS**
+---
+
+## 🔄 State Machine & Transition Rules
+
 ```
-20 × 5 × 1.00 × 1.80 × 1.25 = ₹225.00
+                      ┌──────────────┐
+                      │   RECEIVED   │
+                      └──────┬───────┘
+                             │ (Automatic on creation)
+                             ▼
+                      ┌──────────────┐
+                      │  VALIDATED   │
+                      └──────┬───────┘
+                             │ (Submit to insurer)
+                             ▼
+                      ┌──────────────┐
+                      │  SUBMITTED   │
+                      └──────┬───────┘
+                             │
+                             ▼
+                 ┌───────────────────────┐
+                 │ PENDING_CONFIRMATION  │
+                 └───┬───────┬───────┬───┘
+                     │       │       │
+       (Success)     │       │       │ (Timeout / Stale)
+     ┌───────────────┘       │       └────────────────┐
+     ▼                       ▼                        ▼
+┌─────────┐             ┌─────────┐       ┌──────────────────────┐
+│ ISSUED  │             │ FAILED  │       │ NEEDS_RECONCILIATION │
+└─────────┘             └───┬─────┘       └──────────┬───────────┘
+ (Terminal)                 │ (Retry)                │ (Reconcile)
+                            └────────▶ SUBMITTED ◀───┘
 ```
 
 ---
 
-## 🔄 State Machine
-
-```
-RECEIVED → VALIDATED → SUBMITTED → PENDING_CONFIRMATION → ISSUED
-                                    ↘                     ↗
-                                     → FAILED (terminal)
-                                     → NEEDS_RECONCILIATION
-```
-
-### State Descriptions
-
-| State | Description | Terminal |
-|-------|-------------|----------|
-| RECEIVED | Request received, awaiting validation | No |
-| VALIDATED | Validations passed, premium calculated | No |
-| SUBMITTED | Sent to insurer, awaiting processing | No |
-| PENDING_CONFIRMATION | Insurer accepted, awaiting callback | No |
-| ISSUED | Policy successfully issued | **Yes** |
-| FAILED | Rejected by insurer | **Yes** |
-| NEEDS_RECONCILIATION | No response, manual intervention needed | No |
-
-### Transition Rules
-- **Auto**: RECEIVED → VALIDATED (immediate after creation)
-- **Manual**: VALIDATED → SUBMITTED (via `/submit` endpoint)
-- **Auto**: SUBMITTED → PENDING_CONFIRMATION (for immediate scenarios)
-- **Callback**: PENDING_CONFIRMATION → ISSUED/FAILED/NEEDS_RECONCILIATION
-- **Retry**: FAILED → SUBMITTED (re-submit with new scenario)
-- **Reconcile**: NEEDS_RECONCILIATION → ISSUED/FAILED (via admin)
-
----
-
-## 🎭 Mock Insurer Scenarios
-
-Control behavior via `X-Mock-Scenario` header on submit:
-
-| Scenario | Header Value | Behavior |
-|----------|--------------|----------|
-| Success | `success` | Immediate ISSUED callback |
-| Delayed | `delayed` | 2-second delay then ISSUED |
-| Failure | `failure` | Immediate REJECTED callback |
-| Duplicate | `duplicate` | Sends ISSUED callback twice |
-| Timeout | `timeout` | No callback (requires reconciliation) |
-
----
-
-## 🛡️ Reliability Features
+## 🛡️ Reliability & Fault-Tolerance Features
 
 ### 1. Duplicate Intake Prevention
-**Problem**: Agents may retry requests due to network issues.
+- **Issue**: Client agents frequently retry requests during network timeouts.
+- **Solution**: Composite database unique index on `(agent_id, client_request_id)` with row-level transaction locks (`SELECT ... FOR UPDATE`).
+- **Behavior**: If a matching request already exists, the server returns the existing resource with HTTP `200 OK` rather than generating a duplicate.
 
-**Solution**: 
-- Database UNIQUE constraint on `(agent_id, client_request_id)`
-- `SELECT FOR UPDATE` row-level lock in transaction
-- Returns 200 with existing resource on duplicate
+### 2. Idempotent Callback Processing
+- **Issue**: Insurer webhooks retry deliveries or experience network duplication.
+- **Solution**: Dedicated `provider_events` table indexed by `provider_event_id` (`EVT-{provider_reference}-{event_type}`).
+- **Behavior**: Subsequent identical callbacks are acknowledged safely with HTTP `200 OK` without altering state or generating duplicate policy numbers.
 
-**Test**: `DuplicateIntakeTest::test_concurrent_duplicate_requests_do_not_create_duplicates`
-
-### 2. Duplicate Callback Idempotency
-**Problem**: Insurer may send duplicate callbacks (network retry, bug).
-
-**Solution**:
-- `provider_events` table with unique `provider_event_id`
-- Format: `EVT-{provider_reference}-{event_type}`
-- Atomic check-then-process in transaction
-- Duplicate callbacks return 200, no state change
-
-**Test**: `DuplicateCallbackTest::test_duplicate_callback_is_idempotent`
+### 3. Automated Reconciliation
+- **Issue**: Insurer callbacks may be lost due to network failure, leaving requests in `PENDING_CONFIRMATION`.
+- **Solution**: Reconciliation engine queries insurer reference status and automatically transitions requests to `ISSUED`, `FAILED`, or `NEEDS_RECONCILIATION`.
 
 ---
 
-## 🔧 Reconciliation
+## 🧪 Automated Testing
 
-### Stale Detection
-Requests in `PENDING_CONFIRMATION` with `updated_at` older than threshold (default 30 min) are stale.
+PolicyFlow includes a complete test suite verifying every component, formula, edge case, and scenario:
 
-### Reconciliation Actions
-
-| Provider Status | Action |
-|-----------------|--------|
-| ISSUED | Transition to ISSUED, generate policy number |
-| REJECTED | Transition to FAILED |
-| TIMEOUT | Transition to NEEDS_RECONCILIATION |
-| Already terminal | No action |
-
-### Triggers
-- **Manual**: `POST /api/admin/reconcile` with `provider_reference`
-- **Bulk**: `POST /api/admin/reconcile` with `stale_minutes`
-- **Scheduled**: Run via Laravel scheduler (add to `Kernel.php`)
-
----
-
-## 🗄️ Database Schema
-
-### Core Tables
-
-**policy_requests** - Main entity with all request data, computed premium, and state
-```sql
-- id, client_request_id, agent_id, customer_name, date_of_birth
-- destination, trip_start, trip_end, plan_code, sum_insured
-- travel_days, age_at_travel, base_daily_rate, age_multiplier
-- destination_multiplier, coverage_multiplier, calculated_premium
-- status (7 states), provider_reference, policy_number
-- last_response (JSON), attempt_count, timestamps
-- UNIQUE(agent_id, client_request_id)
-```
-
-**issuance_attempts** - Each submission attempt
-```sql
-- id, policy_request_id, attempt_number
-- request_payload (JSON), response_payload (JSON)
-- response_status, error_message, started_at, completed_at
-```
-
-**provider_events** - Idempotent callback processing
-```sql
-- id, policy_request_id, provider_event_id (UNIQUE)
-- event_type, payload (JSON), processed_at
-```
-
-**policy_state_history** - Full audit trail
-```sql
-- id, policy_request_id, from_state, to_state
-- metadata (JSON), created_at
-```
-
----
-
-## 🧪 Testing
-
-### Run All Tests
 ```bash
 php artisan test
 ```
 
-### Test Suite Summary
+```
+   PASS  Tests\Unit\ExampleTest
+   PASS  Tests\Unit\PremiumCalculatorTest (11 tests)
+   PASS  Tests\Feature\DuplicateCallbackTest (5 tests)
+   PASS  Tests\Feature\DuplicateIntakeTest (5 tests)
+   PASS  Tests\Feature\ExampleTest (2 tests)
+   PASS  Tests\Feature\IssuanceWorkflowTest (8 tests)
+   PASS  Tests\Feature\PolicyRequestTest (13 tests)
+   PASS  Tests\Feature\ReconciliationTest (7 tests)
 
-| Test File | Tests | Coverage |
-|-----------|-------|----------|
-| PremiumCalculatorTest | 11 | All plan/destination/age combos, edge cases |
-| PolicyRequestTest | 13 | Intake, validation, listing, audit trail |
-| IssuanceWorkflowTest | 8 | Submit, transitions, all 5 scenarios |
-| DuplicateIntakeTest | 5 | Prevention, concurrency, uniqueness |
-| DuplicateCallbackTest | 5 | Idempotency, event recording, overwrite prevention |
-| ReconciliationTest | 7 | Stale detection, bulk, retry, unknown ref |
-| ExampleTest | 2 | Basic health checks |
-
-**Total: 53 tests, 241 assertions** ✅
-
-### Run Specific Tests
-```bash
-# Unit tests
-php artisan test tests/Unit/PremiumCalculatorTest.php
-
-# Feature tests by category
-php artisan test tests/Feature/PolicyRequestTest.php
-php artisan test tests/Feature/IssuanceWorkflowTest.php
-php artisan test tests/Feature/DuplicateIntakeTest.php
-php artisan test tests/Feature/DuplicateCallbackTest.php
-php artisan test tests/Feature/ReconciliationTest.php
+  Tests:    53 passed (241 assertions)
+  Duration: 1.10s
 ```
 
 ---
 
-## 🖥️ Admin Panel (Filament v3)
+## 📁 Key Files Reference
 
-### Access
-1. Create user: `php artisan make:filament-user`
-2. Login at: `http://localhost:8000/admin`
-
-### Features
-
-**Policy Request List**
-- Columns: ID, Client Request ID, Agent, Customer, Destination, Plan, Premium, Status, Created
-- Filters: Status (multi), Agent, Destination, Plan, Date Range
-- Sortable: All columns
-
-**Detail View**
-- **Overview**: Customer, trip, plan, premium breakdown
-- **Audit Trail**: Complete state history with metadata
-- **Issuance Attempts**: All submissions with request/response payloads
-- **Provider Events**: Callbacks with idempotency status
-
-**Actions**
-| Action | Available For |
-|--------|---------------|
-| View | All states |
-| Retry Submission | FAILED, NEEDS_RECONCILIATION |
-| Trigger Reconciliation | PENDING_CONFIRMATION, NEEDS_RECONCILIATION |
-
-**Bulk Actions**
-- Trigger Reconciliation (selected stale requests)
+- **Frontend Controller**: [`app/Http/Controllers/Frontend/PolicyFrontendController.php`](file:///Users/gouravdash/Downloads/Tripper/Backend/app/Http/Controllers/Frontend/PolicyFrontendController.php)
+- **API Controller**: [`app/Http/Controllers/Api/PolicyRequestController.php`](file:///Users/gouravdash/Downloads/Tripper/Backend/app/Http/Controllers/Api/PolicyRequestController.php)
+- **Mock Insurer Service**: [`app/Services/MockInsurerService.php`](file:///Users/gouravdash/Downloads/Tripper/Backend/app/Services/MockInsurerService.php)
+- **Pricing Calculator**: [`app/Services/PremiumCalculator.php`](file:///Users/gouravdash/Downloads/Tripper/Backend/app/Services/PremiumCalculator.php)
+- **Reconciliation Service**: [`app/Services/ReconciliationService.php`](file:///Users/gouravdash/Downloads/Tripper/Backend/app/Services/ReconciliationService.php)
+- **Policy Model & State Machine**: [`app/Models/PolicyRequest.php`](file:///Users/gouravdash/Downloads/Tripper/Backend/app/Models/PolicyRequest.php)
+- **Filament Admin Resource**: [`app/Filament/Resources/PolicyRequestResource.php`](file:///Users/gouravdash/Downloads/Tripper/Backend/app/Filament/Resources/PolicyRequestResource.php)
 
 ---
 
-## 📁 Example Files
+## 📖 Related Documents
 
-| File | Purpose |
-|------|---------|
-| `examples/valid-request.json` | Valid request payload |
-| `examples/invalid-dates.json` | Invalid dates example |
-| `examples/curl-commands.sh` | 14 executable cURL examples |
-
-### Run Examples
-```bash
-chmod +x examples/curl-commands.sh
-./examples/curl-commands.sh
-```
-
----
-
-## 🔍 Code Quality
-
-```bash
-# Format code (Laravel Pint)
-php artisan pint
-
-# Static analysis (PHPStan)
-./vendor/bin/phpstan analyse
-
-# Run tests with coverage
-php artisan test --coverage
-```
-
----
-
-## 🚢 Production Deployment
-
-### Checklist
-- [ ] Configure MySQL/PostgreSQL in `.env`
-- [ ] Set up Redis for queues/cache/sessions
-- [ ] Enable HTTPS (SSL certificate)
-- [ ] Add authentication (Laravel Sanctum recommended)
-- [ ] Configure rate limiting (`RateLimiter::for`)
-- [ ] Set up queue workers: `php artisan queue:work --daemon`
-- [ ] Add scheduler for reconciliation: `* * * * * php artisan schedule:run`
-- [ ] Run optimizations:
-  ```bash
-  php artisan config:cache
-  php artisan route:cache
-  php artisan view:cache
-  php artisan event:cache
-  ```
-- [ ] Set `APP_DEBUG=false`, `APP_ENV=production`
-
-### Queue Worker (for delayed scenario)
-```bash
-# Install supervisor or use systemd
-php artisan queue:work redis --sleep=3 --tries=3 --timeout=60
-```
-
----
-
-## 📝 License
-
-This is a demo project for assessment purposes. Not for production use without proper security hardening.
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass: `php artisan test`
-5. Submit PR
-
----
-
-## 📖 Related Documentation
-
-- [API Documentation](API_DOCUMENTATION.md) - Complete endpoint reference
-- [AI Usage Disclosure](AI_USAGE.md) - Development assistance details
-- [Laravel 11 Documentation](https://laravel.com/docs/11.x)
-- [Filament v3 Documentation](https://filamentphp.com/docs/3.x)
-
----
-
-## 🏷️ Version
-
-**1.0.0** - Initial release with all mandatory scope + Filament admin stretch feature
-
-**Candidate ID**: 12307549
+- 📘 **[End-to-End Workflow Guide](END_TO_END_WORKFLOW.md)** — Comprehensive step-by-step walkthrough covering visual UI testing, state machine transitions, and curl recipes.
+- 📗 **[API Documentation](API_DOCUMENTATION.md)** — Complete endpoint specifications, headers, parameters, and JSON payloads.
+- 📕 **[AI Usage Disclosure](AI_USAGE.md)** — Architectural choices, tooling, and development notes.

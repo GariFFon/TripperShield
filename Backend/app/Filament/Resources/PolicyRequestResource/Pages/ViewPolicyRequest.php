@@ -39,10 +39,11 @@ class ViewPolicyRequest extends ViewRecord
                         Infolists\Components\TextEntry::make('destination')
                             ->label('Destination')
                             ->badge()
-                            ->colors([
-                                'success' => 'DOMESTIC',
-                                'primary' => 'INTERNATIONAL',
-                            ]),
+                            ->color(fn (string $state): string => match($state) {
+                                'DOMESTIC' => 'success',
+                                'INTERNATIONAL' => 'info',
+                                default => 'gray',
+                            }),
                         Infolists\Components\TextEntry::make('trip_start')
                             ->label('Trip Start')
                             ->date(),
@@ -52,11 +53,12 @@ class ViewPolicyRequest extends ViewRecord
                         Infolists\Components\TextEntry::make('plan_code')
                             ->label('Plan')
                             ->badge()
-                            ->colors([
-                                'gray' => 'BASIC',
-                                'primary' => 'PLUS',
-                                'warning' => 'PREMIUM',
-                            ]),
+                            ->color(fn (string $state): string => match($state) {
+                                'BASIC' => 'gray',
+                                'PLUS' => 'info',
+                                'PREMIUM' => 'warning',
+                                default => 'gray',
+                            }),
                         Infolists\Components\TextEntry::make('sum_insured')
                             ->label('Sum Insured')
                             ->money('INR'),
@@ -96,15 +98,16 @@ class ViewPolicyRequest extends ViewRecord
                         Infolists\Components\TextEntry::make('status')
                             ->label('Current Status')
                             ->badge()
-                            ->colors([
-                                'gray' => 'RECEIVED',
-                                'info' => 'VALIDATED',
-                                'warning' => 'SUBMITTED',
-                                'amber' => 'PENDING_CONFIRMATION',
-                                'success' => 'ISSUED',
-                                'danger' => 'FAILED',
-                                'purple' => 'NEEDS_RECONCILIATION',
-                            ]),
+                            ->color(fn (string $state): string => match($state) {
+                                'RECEIVED' => 'gray',
+                                'VALIDATED' => 'info',
+                                'SUBMITTED' => 'warning',
+                                'PENDING_CONFIRMATION' => 'warning',
+                                'ISSUED' => 'success',
+                                'FAILED' => 'danger',
+                                'NEEDS_RECONCILIATION' => 'purple',
+                                default => 'gray',
+                            }),
                         Infolists\Components\TextEntry::make('provider_reference')
                             ->label('Provider Reference')
                             ->placeholder('—')
